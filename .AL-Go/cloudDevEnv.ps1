@@ -9,8 +9,7 @@ Param(
     [switch] $fromVSCode
 )
 
-$ErrorActionPreference = "stop"
-Set-StrictMode -Version 2.0
+$errorActionPreference = "Stop"; $ProgressPreference = "SilentlyContinue"; Set-StrictMode -Version 2.0
 
 try {
 $webClient = New-Object System.Net.WebClient
@@ -27,7 +26,7 @@ Import-Module $GitHubHelperPath
 . $ALGoHelperPath -local
     
 $baseFolder = GetBaseFolder -folder $PSScriptRoot
-$project = GetProject -folder $baseFolder -ALGoFolder $PSScriptRoot
+$project = GetProject -baseFolder $baseFolder -projectALGoFolder $PSScriptRoot
 
 Clear-Host
 Write-Host
@@ -60,7 +59,8 @@ if (-not $environmentName) {
     $environmentName = Enter-Value `
         -title "Environment name" `
         -question "Please enter the name of the environment to create" `
-        -default "$($env:USERNAME)-sandbox"
+        -default "$($env:USERNAME)-sandbox" `
+        -trimCharacters @('"',"'",' ')
 }
 
 if ($PSBoundParameters.Keys -notcontains 'reuseExistingEnvironment') {

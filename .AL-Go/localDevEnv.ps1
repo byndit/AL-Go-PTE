@@ -12,8 +12,7 @@ Param(
     [switch] $fromVSCode
 )
 
-$ErrorActionPreference = "stop"
-Set-StrictMode -Version 2.0
+$errorActionPreference = "Stop"; $ProgressPreference = "SilentlyContinue"; Set-StrictMode -Version 2.0
 
 try {
 $webClient = New-Object System.Net.WebClient
@@ -30,7 +29,7 @@ Import-Module $GitHubHelperPath
 . $ALGoHelperPath -local
 
 $baseFolder = GetBaseFolder -folder $PSScriptRoot
-$project = GetProject -folder $baseFolder -ALGoFolder $PSScriptRoot
+$project = GetProject -baseFolder $baseFolder -projectALGoFolder $PSScriptRoot
 
 Clear-Host
 Write-Host
@@ -74,7 +73,8 @@ if (-not $containerName) {
     $containerName = Enter-Value `
         -title "Container name" `
         -question "Please enter the name of the container to create" `
-        -default "bcserver"
+        -default "bcserver" `
+        -trimCharacters @('"',"'",' ')
 }
 
 if (-not $auth) {
@@ -101,8 +101,8 @@ if (-not $credential) {
 
 if (-not $licenseFileUrl) {
     if ($settings.type -eq "AppSource App") {
-        $description = "When developing AppSource Apps, your local development environment needs the developer licensefile with permissions to your AppSource app object IDs"
-        $default = ""
+        $description = "When developing AppSource Apps for Business Central versions prior to 22, your local development environment needs the developer licensefile with permissions to your AppSource app object IDs"
+        $default = "none"
     }
     else {
         $description = "When developing PTEs, you can optionally specify a developer licensefile with permissions to object IDs of your dependant apps"
@@ -114,11 +114,12 @@ if (-not $licenseFileUrl) {
         -description $description `
         -question "Local path or a secure download URL to license file " `
         -default $default `
-        -doNotConvertToLower
+        -doNotConvertToLower `
+        -trimCharacters @('"',"'",' ')
+}
 
-    if ($licenseFileUrl -eq "none") {
-        $licenseFileUrl = ""
-    }
+if ($licenseFileUrl -eq "none") {
+    $licenseFileUrl = ""
 }
 
 CreateDevEnv `
