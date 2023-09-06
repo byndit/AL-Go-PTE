@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 defaults:
   run:
@@ -34,14 +35,14 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: byndit/AL-Go-Actions/WorkflowInitialize@main
+        uses: byndit/AL-Go-Actions/WorkflowInitialize@build-hooks
         with:
           shell: powershell
           eventId: "DO0100"
 
       - name: Read settings
         id: ReadSettings
-        uses: byndit/AL-Go-Actions/ReadSettings@main
+        uses: byndit/AL-Go-Actions/ReadSettings@build-hooks
         with:
           shell: powershell
 
@@ -49,13 +50,32 @@ jobs:
         id: DetermineWorkflowDepth
         run: |
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "WorkflowDepth=$($env:workflowDepth)"
-          
+
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: byndit/AL-Go-Actions/DetermineProjectsToBuild@main
+        uses: byndit/AL-Go-Actions/DetermineProjectsToBuild@build-hooks
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
+
+      - name: Determine PreBuild Workflow
+        id: PreBuildWorkflow
+        run: |
+          $PreBuildWorkflow = Test-Path -Path ".github/workflows/PreBuild.yaml"
+          Write-Host "PreBuildWorkflow=$PreBuildWorkflow"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "PreBuildWorkflow=$PreBuildWorkflow"
+  
+      - name: Determine PostBuild Workflow
+        id: PostBuildWorkflow
+        run: |
+          $PostBuildWorkflow = Test-Path -Path ".github/workflows/PostBuild.yaml"
+          Write-Host "PostBuildWorkflow=$PostBuildWorkflow"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "PostBuildWorkflow=$PostBuildWorkflow"
+
+  PreBuild:
+    needs: [ Initialization ]
+    if: (!failure()) && (!cancelled()) && needs.Initialization.outputs.PreBuildWorkflow == 'True'
+    uses: './.github/workflows/PreBuild.yaml'
 
   Build:
     needs: [ Initialization ]
@@ -64,7 +84,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.Initialization.outputs.buildOrderJson)[0].buildDimensions }}
       fail-fast: false
-    name: Build ${{ matrix.project }} - ${{ matrix.buildMode }}
+    name: Build ${{ matrix.projectName }} (${{ matrix.buildMode }})
     uses: ./.github/workflows/_BuildALGoProject.yaml
     secrets: inherit
     with:
@@ -72,11 +92,17 @@ jobs:
       runsOn: ${{ needs.Initialization.outputs.githubRunner }}
       parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
       project: ${{ matrix.project }}
+      projectName: ${{ matrix.projectName }}
       buildMode: ${{ matrix.buildMode }}
       projectDependenciesJson: ${{ needs.Initialization.outputs.projectDependenciesJson }}
-      secrets: 'licenseFileUrl,insiderSasToken,codeSignCertificateUrl,codeSignCertificatePassword,keyVaultCertificateUrl,keyVaultCertificatePassword,keyVaultClientId,gitHubPackagesContext,applicationInsightsConnectionString'
+      secrets: 'licenseFileUrl,insiderSasToken,codeSignCertificateUrl,*codeSignCertificatePassword,keyVaultCertificateUrl,*keyVaultCertificatePassword,keyVaultClientId,gitHubPackagesContext,applicationInsightsConnectionString'
       publishThisBuildArtifacts: ${{ needs.Initialization.outputs.workflowDepth > 1 }}
       artifactsNameSuffix: 'NextMinor'
+
+  PostBuild:
+    needs: [ Initialization ]
+    if: (!failure()) && (!cancelled()) && needs.Initialization.outputs.PostBuildWorkflow == 'True'
+    uses: './.github/workflows/PostBuild.yaml'
 
   PostProcess:
     if: always()
@@ -88,7 +114,7 @@ jobs:
 
       - name: Finalize the workflow
         id: PostProcess
-        uses: byndit/AL-Go-Actions/WorkflowPostProcess@main
+        uses: byndit/AL-Go-Actions/WorkflowPostProcess@build-hooks
         with:
           shell: powershell
           eventId: "DO0100"

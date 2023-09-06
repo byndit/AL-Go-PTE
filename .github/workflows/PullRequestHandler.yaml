@@ -29,7 +29,7 @@ jobs:
     if: (github.event.pull_request.base.repo.full_name != github.event.pull_request.head.repo.full_name) && (github.event_name != 'pull_request')
     runs-on: [ windows-latest ]
     steps:
-      - uses: byndit/AL-Go-Actions/VerifyPRChanges@main
+      - uses: byndit/AL-Go-Actions/VerifyPRChanges@build-hooks
 
   Initialization:
     needs: [ PregateCheck ]
@@ -52,25 +52,25 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: byndit/AL-Go-Actions/WorkflowInitialize@main
+        uses: byndit/AL-Go-Actions/WorkflowInitialize@build-hooks
         with:
           shell: powershell
           eventId: "DO0104"
 
       - name: Read settings
         id: ReadSettings
-        uses: byndit/AL-Go-Actions/ReadSettings@main
+        uses: byndit/AL-Go-Actions/ReadSettings@build-hooks
         with:
           shell: powershell
-      
+
       - name: Determine Workflow Depth
         id: DetermineWorkflowDepth
         run: |
           Add-Content -Encoding UTF8 -Path $env:GITHUB_OUTPUT -Value "WorkflowDepth=$($env:workflowDepth)"
-          
+
       - name: Determine Projects To Build
         id: determineProjectsToBuild
-        uses: byndit/AL-Go-Actions/DetermineProjectsToBuild@main
+        uses: byndit/AL-Go-Actions/DetermineProjectsToBuild@build-hooks
         with:
           shell: powershell
           maxBuildDepth: ${{ env.workflowDepth }}
@@ -82,7 +82,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.Initialization.outputs.buildOrderJson)[0].buildDimensions }}
       fail-fast: false
-    name: Build ${{ matrix.project }} - ${{ matrix.buildMode }}
+    name: Build ${{ matrix.projectName }} (${{ matrix.buildMode }})
     uses: ./.github/workflows/_BuildALGoProject.yaml
     secrets: inherit
     with:
@@ -91,9 +91,10 @@ jobs:
       checkoutRef: refs/pull/${{ github.event.number }}/merge
       parentTelemetryScopeJson: ${{ needs.Initialization.outputs.telemetryScopeJson }}
       project: ${{ matrix.project }}
+      projectName: ${{ matrix.projectName }}
       buildMode: ${{ matrix.buildMode }}
       projectDependenciesJson: ${{ needs.Initialization.outputs.projectDependenciesJson }}
-      secrets: 'licenseFileUrl,insiderSasToken,keyVaultCertificateUrl,keyVaultCertificatePassword,keyVaultClientId,gitHubPackagesContext,applicationInsightsConnectionString'
+      secrets: 'licenseFileUrl,insiderSasToken,keyVaultCertificateUrl,*keyVaultCertificatePassword,keyVaultClientId,gitHubPackagesContext,applicationInsightsConnectionString'
       publishThisBuildArtifacts: ${{ needs.Initialization.outputs.workflowDepth > 1 }}
 
   StatusCheck:
@@ -104,7 +105,7 @@ jobs:
     steps:
       - name: Pull Request Status Check
         id: PullRequestStatusCheck
-        uses: byndit/AL-Go-Actions/PullRequestStatusCheck@main
+        uses: byndit/AL-Go-Actions/PullRequestStatusCheck@build-hooks
         env:
           GITHUB_TOKEN: ${{ github.token }}
         with:
