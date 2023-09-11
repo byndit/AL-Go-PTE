@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       templateUrl:
-        description: Template Repository URL (current is {TEMPLATEURL})
+        description: Template Repository URL (current is https://gitHub.com/Microsoft/AL-Go-PTE@main)
         required: false
         default: ''
       directCommit:
@@ -32,22 +32,23 @@ jobs:
 
       - name: Initialize the workflow
         id: init
-        uses: byndit/AL-Go-Actions/WorkflowInitialize@main
+        uses: microsoft/AL-Go-Actions/WorkflowInitialize@v3.2
         with:
           shell: powershell
           eventId: "DO0098"
 
       - name: Read settings
-        uses: byndit/AL-Go-Actions/ReadSettings@main
+        uses: microsoft/AL-Go-Actions/ReadSettings@v3.2
         with:
           shell: powershell
+          parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
           get: templateUrl
 
       - name: Read secrets
-        id: ReadSecrets
-        uses: byndit/AL-Go-Actions/ReadSecrets@main
+        uses: microsoft/AL-Go-Actions/ReadSecrets@v3.2
         with:
           shell: powershell
+          parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
           gitHubSecrets: ${{ toJson(secrets) }}
           getSecrets: 'ghTokenWorkflow'
 
@@ -77,18 +78,18 @@ jobs:
           Add-Content -Encoding UTF8 -Path $env:GITHUB_ENV -Value "DirectCommit=$directCommit"
 
       - name: Update AL-Go system files
-        uses: byndit/AL-Go-Actions/CheckForUpdates@main
+        uses: microsoft/AL-Go-Actions/CheckForUpdates@v3.2
         with:
           shell: powershell
           parentTelemetryScopeJson: ${{ steps.init.outputs.telemetryScopeJson }}
-          token: ${{ fromJson(steps.ReadSecrets.outputs.Secrets).ghTokenWorkflow }}
+          token: ${{ fromJson(env.Secrets).ghTokenWorkflow }}
           Update: Y
           templateUrl: ${{ env.templateUrl }}
           directCommit: ${{ env.directCommit }}
 
       - name: Finalize the workflow
         if: always()
-        uses: byndit/AL-Go-Actions/WorkflowPostProcess@main
+        uses: microsoft/AL-Go-Actions/WorkflowPostProcess@v3.2
         with:
           shell: powershell
           eventId: "DO0098"
